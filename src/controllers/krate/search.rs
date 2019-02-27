@@ -1,6 +1,7 @@
 //! Endpoint for searching and discovery functionality
 
 use diesel_full_text_search::*;
+use diesel::dsl::*;
 
 use crate::controllers::helpers::Paginate;
 use crate::controllers::prelude::*;
@@ -119,6 +120,11 @@ pub fn search(req: &mut dyn Request) -> CargoResult<Response> {
                     .filter(crate_owners::owner_kind.eq(OwnerKind::User as i32)),
             ),
         );
+        query = query.filter(exists(
+            versions::table
+                .filter(versions::crate_id.eq(crates::id))
+                .filter(versions::yanked.eq(false))
+        ));
     } else if let Some(team_id) = params.get("team_id").and_then(|s| s.parse::<i32>().ok()) {
         query = query.filter(
             crates::id.eq_any(
@@ -129,6 +135,11 @@ pub fn search(req: &mut dyn Request) -> CargoResult<Response> {
                     .filter(crate_owners::owner_kind.eq(OwnerKind::Team as i32)),
             ),
         );
+        query = query.filter(exists(
+            versions::table
+                .filter(versions::crate_id.eq(crates::id))
+                .filter(versions::yanked.eq(false))
+        ));
     } else if params.get("following").is_some() {
         query = query.filter(
             crates::id.eq_any(
