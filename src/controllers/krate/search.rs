@@ -1,6 +1,7 @@
 //! Endpoint for searching and discovery functionality
 
 use diesel_full_text_search::*;
+use diesel::dsl::*;
 
 use crate::controllers::helpers::Paginate;
 use crate::controllers::prelude::*;
@@ -137,6 +138,19 @@ pub fn search(req: &mut dyn Request) -> CargoResult<Response> {
                     .filter(follows::user_id.eq(req.user()?.id)),
             ),
         );
+    }
+
+    if let Some(include_yanked) = params.get("include_yanked").map(|s| match s.to_lowercase().as_ref() {
+        "n" | "no" | "f" | "false" | "0" => false,
+        _ => true,
+    }) {
+        if !include_yanked {
+            query = query.filter(exists(
+                versions::table
+                    .filter(versions::crate_id.eq(crates::id))
+                    .filter(versions::yanked.eq(false))
+                ));
+        }
     }
 
     if sort == "downloads" {
